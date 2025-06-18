@@ -205,6 +205,26 @@ Removing worktree at: /path/to/repo/feature-login
 ✓ Successfully deleted worktree 'feature-login' and branch 'feature-login'
 ```
 
+## ⚠️ Note on Deleting Worktrees from Within Themselves
+
+When you run this script from inside a worktree and that worktree is deleted, your shell is left in a deleted directory. This is a limitation of Unix/POSIX systems:
+
+- Most commands (including git) will fail until you `cd` to a valid directory.
+- The script will print a warning and suggest a `cd` command to recover.
+- This is not a bug in the script, but a fundamental behavior of Unix shells and filesystems.
+
+**References:**
+- [getcwd(3) man page](https://man7.org/linux/man-pages/man3/getcwd.3.html)
+- [Stack Overflow: What happens if the current working directory is deleted?](https://unix.stackexchange.com/questions/434417/what-happens-when-the-current-directory-is-deleted)
+
+**Example error message:**
+```
+✗ Branch could not be deleted because the current working directory was deleted.
+  This is a limitation of Unix/POSIX systems: when your shell is left in a deleted directory, most commands (including git) will fail until you cd to a valid directory.
+  See: https://man7.org/linux/man-pages/man3/getcwd.3.html
+       https://stackoverflow.com/questions/4370798/what-happens-if-the-current-working-directory-is-deleted
+```
+
 ## Requirements
 
 - Git 2.5+ (for worktree support)
