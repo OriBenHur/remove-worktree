@@ -319,20 +319,25 @@ if [[ "$IS_DELETING_CURRENT_WORKTREE" == true ]]; then
     
     if [[ -n "$MAIN_WORKTREE_PATH" ]] && [[ "$MAIN_WORKTREE_PATH" != "$WORKTREE_PATH" ]]; then
         message -m "Using main worktree directory for operations..." -c "$YELLOW"
+        # Move to the main worktree directory before any destructive operations
+        cd "$MAIN_WORKTREE_PATH"
     fi
 fi
 
 # Delete the local branch FIRST (before removing worktree)
 message -m "Deleting local branch: $BRANCH_NAME" -c "$YELLOW"
+BRANCH_DELETED=false
 if [[ "$IS_DELETING_CURRENT_WORKTREE" == true ]] && [[ -n "$MAIN_WORKTREE_PATH" ]]; then
     if git -C "$MAIN_WORKTREE_PATH" branch -D "$BRANCH_NAME" 2> >(grep -v "error: Cannot delete branch" >&2); then
         message -m "✓ Local branch deleted successfully" -c "$GREEN"
+        BRANCH_DELETED=true
     else
         message -m "⚠ Branch deletion failed (likely checked out), will be cleaned up after worktree removal" -c "$YELLOW"
     fi
 else
     if git branch -D "$BRANCH_NAME" 2> >(grep -v "error: Cannot delete branch" >&2); then
         message -m "✓ Local branch deleted successfully" -c "$GREEN"
+        BRANCH_DELETED=true
     else
         message -m "⚠ Branch deletion failed (likely checked out), will be cleaned up after worktree removal" -c "$YELLOW"
     fi
@@ -358,4 +363,52 @@ else
     fi
 fi
 
-message -n -m "✓ Successfully deleted worktree '$WORKTREE_NAME' and branch '$BRANCH_NAME'" -c "$GREEN" -z
+# Try deleting the branch again if it failed the first time
+if [[ "$BRANCH_DELETED" == false ]]; then
+    message -m "Retrying branch deletion now that worktree is removed..." -c "$YELLOW"
+
+    if [[ -n "$MAIN_WORKTREE_PATH" ]]; then
+        GIT_CMD="$(which git) -C \"$MAIN_WORKTREE_PATH\" branch -D \"$BRANCH_NAME\""
+    else
+        GIT_CMD="$(which git) branch -D \"$BRANCH_NAME\""
+    fi
+
+    retry_count=0
+    max_retries=3
+    retry_delay=1
+    output=""
+    while [[ $retry_count -lt $max_retries ]] && [[ "$BRANCH_DELETED" == false ]] && [[ $output != *"not a git repository"* ]]; do
+        if [[ $retry_count -gt 0 ]]; then
+            message -m "Retry attempt $((retry_count + 1))/$max_retries..." -c "$YELLOW"
+            sleep $retry_delay
+        fi
+        if output=$(bash -c "$GIT_CMD" 2>&1); then
+            message -m "✓ Local branch deleted successfully after worktree removal" -c "$GREEN"
+            BRANCH_DELETED=true
+            break
+        fi
+        retry_count=$((retry_count + 1))
+    done
+
+    if [[ "$BRANCH_DELETED" == false ]]; then
+        if [[ $output == *"not a git repository"* ]]; then
+            message -m $'✗ Branch could not be deleted because the current working directory was deleted.\n  This is a limitation of Unix/POSIX systems: when your shell is left in a deleted directory, most commands (including git) will fail until you cd to a valid directory.\n  See: https://man7.org/linux/man-pages/man3/getcwd.3.html\n       https://stackoverflow.com/questions/4370798/what-happens-if-the-current-working-directory-is-deleted' -c "$RED"
+        else
+            message -m "✗ Branch could not be deleted after $max_retries attempts. It may still be checked out elsewhere or protected." -c "$RED"
+        fi
+        message -m "You can manually delete the branch using:" -c "$YELLOW"
+        if [[ -n "$MAIN_WORKTREE_PATH" ]]; then
+            message -m "  git -C \"$MAIN_WORKTREE_PATH\" branch -D \"$BRANCH_NAME\"" -c "$YELLOW"
+        else
+            message -m "  git branch -D \"$BRANCH_NAME\"" -c "$YELLOW"
+        fi
+    fi
+fi
+
+# Show the appropriate success message based on what was actually deleted
+if [[ "$BRANCH_DELETED" == true ]]; then
+    message -n -m "✓ Successfully deleted worktree '$WORKTREE_NAME' and branch '$BRANCH_NAME'" -c "$GREEN"
+else
+    message -n -m "✓ Successfully deleted worktree '$WORKTREE_NAME' (branch '$BRANCH_NAME' could not be deleted)" -c "$GREEN"
+fi
+
