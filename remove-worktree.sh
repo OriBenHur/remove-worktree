@@ -313,14 +313,19 @@ message -n -m "Proceeding with deletion..." -c "$YELLOW"
 # If we're deleting the current worktree, find the main worktree path for git -C
 if [[ "$IS_DELETING_CURRENT_WORKTREE" == true ]]; then
     # Get the main repository path using git rev-parse
-    MAIN_WORKTREE_PATH=$(git rev-parse --path-format=absolute --git-common-dir)
+    MAIN_WORKTREE_PATH=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
     # Remove the .git suffix to get the worktree directory
-    MAIN_WORKTREE_PATH="${MAIN_WORKTREE_PATH%/.git}"
+    if [[ -n "$MAIN_WORKTREE_PATH" ]]; then
+        MAIN_WORKTREE_PATH="${MAIN_WORKTREE_PATH%/.git}"
+    fi
     
-    if [[ -n "$MAIN_WORKTREE_PATH" ]] && [[ "$MAIN_WORKTREE_PATH" != "$WORKTREE_PATH" ]]; then
+    if [[ -n "$MAIN_WORKTREE_PATH" ]] && [[ "$MAIN_WORKTREE_PATH" != "$WORKTREE_PATH" ]] && [[ -d "$MAIN_WORKTREE_PATH" ]]; then
         message -m "Using main worktree directory for operations..." -c "$YELLOW"
         # Move to the main worktree directory before any destructive operations
         cd "$MAIN_WORKTREE_PATH"
+    else
+        message -m "Warning: Could not determine main worktree path, proceeding from current location" -c "$YELLOW"
+        MAIN_WORKTREE_PATH=""
     fi
 fi
 
@@ -349,7 +354,9 @@ if [[ "$IS_DELETING_CURRENT_WORKTREE" == true ]] && [[ -n "$MAIN_WORKTREE_PATH" 
     if git -C "$MAIN_WORKTREE_PATH" worktree remove "$WORKTREE_PATH" --force; then
         message -m "✓ Worktree removed successfully" -c "$GREEN"
         # Move to main worktree path to avoid being in a deleted directory
-        cd "$MAIN_WORKTREE_PATH"
+        if [[ -n "$MAIN_WORKTREE_PATH" ]] && [[ -d "$MAIN_WORKTREE_PATH" ]]; then
+            cd "$MAIN_WORKTREE_PATH"
+        fi
     else
         message -m "✗ Failed to remove worktree" -c "$RED" -e 1
     fi
@@ -357,7 +364,9 @@ else
     if git worktree remove "$WORKTREE_PATH" --force; then
         message -m "✓ Worktree removed successfully" -c "$GREEN"
         # Move to main worktree path to avoid being in a deleted directory
-        cd "$MAIN_WORKTREE_PATH"
+        if [[ -n "$MAIN_WORKTREE_PATH" ]] && [[ -d "$MAIN_WORKTREE_PATH" ]]; then
+            cd "$MAIN_WORKTREE_PATH"
+        fi
     else
         message -m "✗ Failed to remove worktree" -c "$RED" -e 1
     fi
