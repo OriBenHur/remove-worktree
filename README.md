@@ -5,7 +5,7 @@ A Git alias script that safely deletes both a worktree folder and its associated
 ## Features
 
 - 🗑️ **Complete cleanup**: Removes both the worktree directory and its associated local branch
-- 🛡️ **Safety checks**: Prevents accidental deletion of protected branches (main, master, develop)
+- 🛡️ **Safety checks**: Prevents accidental deletion of protected branches (main, master, develop), checks that the upstream branch still exists on the remote, and asks again when deleting would drop commits that are not there
 - 📋 **Smart detection**: Automatically detects the current worktree if no name is provided
 - 🔍 **Worktree listing**: List all available worktrees with their branches and paths
 - ⚠️ **Confirmation prompts**: Interactive confirmation to prevent accidental deletions
@@ -105,6 +105,8 @@ git delete-worktree -l
 2. **Branch Association**: Automatically determines the local branch associated with the worktree
 3. **Safety Checks**: 
    - Prevents deletion of protected branches (main, master, develop) without explicit confirmation
+   - Asks the remote whether the upstream branch still exists, without fetching
+   - Asks for an extra confirmation when that branch is missing or unreachable, or the local branch is ahead of it
    - Validates that the worktree exists
 4. **Smart Deletion Process**:
    - Attempts to delete the branch first (if possible)
@@ -124,6 +126,29 @@ The script protects important branches by default:
 To delete these branches, you must either:
 - Use the `--force` flag, or
 - Explicitly type "yes" when prompted
+
+### Upstream and unpushed commits
+The script reads the branch's configured upstream, then asks that remote whether the branch is still there (`git ls-remote --heads`). A remote-tracking ref left in the local repository is not treated as proof. The script does not fetch and does not update remote-tracking refs.
+
+Before deleting, it prints that upstream:
+
+- `origin/feature` when the branch is on the remote and the local branch matches that commit
+- `origin/feature (ahead 2)` when the local branch has commits the remote branch does not
+- `origin/feature (behind 1)` or `origin/feature (ahead 2, behind 1)` when the histories differ that way
+- `origin/feature (not on origin)` when the remote does not have that branch
+- `origin/feature (on origin; tip not fetched)` when the remote has the branch but that commit is not in this repository
+- `origin/feature (could not check origin)` when the remote could not be contacted
+- `none` when no upstream is configured
+
+Deletion stops for an extra confirmation (type `yes`) when:
+
+- the branch is ahead of the commit currently on the remote, or
+- the remote no longer has the branch and the local branch has commits that are not on any remote, or
+- the remote has the branch but its commit is not available locally, or
+- the remote could not be contacted, or
+- there is no upstream and the branch has commits that are not on any remote
+
+`--force` skips the prompt. The upstream line is still printed. Those commits remain in the reflog until it expires. The remote branch is left in place.
 
 ### Current Worktree Protection
 If you're currently inside the worktree you want to delete, the script will:
@@ -163,11 +188,11 @@ The script can safely delete the worktree you're currently in when using `--forc
 ```bash
 $ git delete-worktree --list
 Available worktrees:
-  NAME              BRANCH           PATH
-  ----------------  ----------------  --------------------------------------------------
-  main              main              /path/to/repo
-  feature-login     feature/login     /path/to/repo/feature-login
-  bugfix-123        bugfix/issue-123  /path/to/repo/bugfix-123
+  NAME              BRANCH           UPSTREAM                         PATH
+  ----------------  ----------------  -------------------------------  --------------------------------------------------
+  main              main              origin/main                      /path/to/repo
+  feature-login     feature/login     origin/feature/login (ahead 1)   /path/to/repo/feature-login
+  bugfix-123        bugfix/issue-123  none (2 not on any remote)       /path/to/repo/bugfix-123
 ```
 
 ### Deleting a Worktree
@@ -176,6 +201,7 @@ $ git delete-worktree feature-login
 Worktree name: feature-login
 Worktree path: /path/to/repo/feature-login
 Associated branch: feature/login
+Upstream: origin/feature/login
 
 Are you sure you want to delete this worktree and branch? (y/N): y
 
@@ -194,6 +220,7 @@ $ git delete-worktree --force
 Worktree name: feature-login
 Worktree path: /path/to/repo/feature-login
 Associated branch: feature/login
+Upstream: origin/feature/login (ahead 1)
 
 Proceeding with deletion...
 Using main worktree directory for operations...
