@@ -34,25 +34,37 @@ chmod +x git-delete-worktree
 sudo mv git-delete-worktree /usr/local/bin/
 ```
 
-### Option 2: Git Alias Setup
-
-1. Copy the script to your preferred location:
+4. Install the manual so `git delete-worktree --help` can open it:
 ```bash
-cp remove-worktree.sh ~/bin/git-delete-worktree
-chmod +x ~/bin/git-delete-worktree
+sudo mkdir -p /usr/local/share/man/man1
+sudo cp man/man1/git-delete-worktree.1 /usr/local/share/man/man1/
 ```
 
-2. Add to your PATH (if not already added):
+Name the file `git-delete-worktree`. Git finds external commands by that name. A shell alias is not required, and a shell alias whose value starts with `!` makes `git delete-worktree --help` print the alias and exit without running the script.
+
+### Option 2: User install
+
+1. Copy the script onto your PATH under the name Git looks up:
 ```bash
-echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
-# or for zsh:
-echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
+mkdir -p ~/.local/bin
+cp remove-worktree.sh ~/.local/bin/git-delete-worktree
+chmod +x ~/.local/bin/git-delete-worktree
 ```
 
-3. Create a Git alias:
+2. Install the manual somewhere `man` searches:
 ```bash
-git config --global alias.delete-worktree '!git-delete-worktree'
+mkdir -p ~/.local/share/man/man1
+cp man/man1/git-delete-worktree.1 ~/.local/share/man/man1/
 ```
+
+`~/.local/bin` must be on `PATH`. On macOS, `man` does not search `~/.local/share/man` unless `MANPATH` includes it (a trailing colon keeps the system paths):
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+export MANPATH="$HOME/.local/share/man:"
+```
+
+Do not also set `alias.delete-worktree` to a `!` shell command unless `git-delete-worktree` is already on `PATH`. Git answers `--help` before it runs an alias. For a `!` alias, and no `git-delete-worktree` on `PATH`, that answer is only the alias line. `git delete-worktree -h` still runs the script.
 
 ## Usage
 
@@ -76,7 +88,8 @@ git delete-worktree --list
 
 | Option | Description |
 |--------|-------------|
-| `-h, --help` | Show help message |
+| `-h` | Show the script's usage text. This is the flag that reaches the script when the command is a shell alias |
+| `--help` | Show this manual when `git-delete-worktree` is on `PATH`. A `!` shell alias with no command of that name on `PATH` prints the alias instead |
 | `-f, --force` | Force deletion without confirmation |
 | `-l, --list` | List all available worktrees |
 

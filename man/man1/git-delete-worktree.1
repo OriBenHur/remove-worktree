@@ -1,0 +1,68 @@
+.TH GIT-DELETE-WORKTREE 1 "2026-09-29" "" "Git Manual"
+.SH NAME
+git-delete-worktree \- delete a worktree and its local branch
+.SH SYNOPSIS
+.B git delete-worktree
+[\fIworktree-name\fR]
+[\fB\-f\fR|\fB\-\-force\fR]
+.br
+.B git delete-worktree
+(\fB\-l\fR|\fB\-\-list\fR)
+.br
+.B git delete-worktree
+\fB\-h\fR
+.SH DESCRIPTION
+Delete a Git worktree directory and the local branch checked out there.
+If no worktree name is given, the current worktree is used.
+The name is the worktree directory name, not a full path.
+.PP
+The script reads the branch's configured upstream and asks that remote
+whether the branch is still there, using
+.BR "git ls-remote --heads" .
+A remote-tracking ref left in the local repository is not treated as proof.
+The script does not fetch and does not update remote-tracking refs.
+.PP
+Deletion asks for an extra confirmation when the upstream branch is missing,
+the local branch is ahead of it, the remote tip is not in this repository,
+the remote cannot be checked, or the branch has no upstream and its commits
+are not on any remote.
+.B \-\-force
+skips that prompt and still prints the upstream.
+The remote branch is not deleted.
+.PP
+Protected branches (main, master, develop, development) ask for confirmation
+before that upstream check.
+Deleting the current worktree without
+.B \-\-force
+prints the unpushed-commit warning and exits.
+.SH OPTIONS
+.TP
+.BR \-f ", " \-\-force
+Delete without confirmation prompts.
+.TP
+.B \-h
+Show the script's usage text.
+.TP
+.BR \-l ", " \-\-list
+List worktrees with their branches, upstreams, and paths.
+.SH NOTES
+.B git delete-worktree \-\-help
+and
+.B man git-delete-worktree
+show this manual.
+Both require
+.B git-delete-worktree
+on
+.B PATH
+and this page on the manual path.
+.PP
+A shell alias whose value starts with
+.B !
+does not receive
+.BR \-\-help .
+Git prints the alias and exits.
+.B git delete-worktree \-h
+still runs the script.
+.SH "SEE ALSO"
+.BR git-worktree (1),
+.BR git-branch (1)

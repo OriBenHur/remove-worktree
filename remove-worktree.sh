@@ -90,7 +90,7 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -f, --force     Force deletion without confirmation"
-    echo "  -h, --help      Show this help message"
+    echo "  -h              Show this help message"
     echo "  -l, --list      List all available worktrees"
     echo ""
     echo "The script asks the remote whether the upstream branch still exists"
@@ -428,7 +428,7 @@ FORCE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -h|--help)
+        -h)
             show_usage
             exit 0
             ;;
